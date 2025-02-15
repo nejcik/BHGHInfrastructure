@@ -1,0 +1,70 @@
+name: "Reusable Terraform Deployment"
+
+on:
+  workflow_call:
+    inputs:
+      working_directory:
+        required: true
+        type: string
+      tfvars_env:
+        required: true
+        type: string
+    secrets:
+      ARM_CLIENT_ID:
+        required: true
+      ARM_CLIENT_SECRET:
+        required: true
+      ARM_TENANT_ID:
+        required: true
+      BACKEND_RG:
+        required: true
+      BACKEND_STORAGE:
+        required: true
+      BACKEND_CONTAINER:
+        required: true
+
+jobs:
+  terraform:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_version: 1.5.9
+
+      - name: Azure Login
+        run: az login --service-principal -u ${{ secrets.ARM_CLIENT_ID }} -p ${{ secrets.ARM_CLIENT_SECRET }} --tenant ${{ secrets.ARM_TENANT_ID }}
+
+      - name: Initialize Terraform Backend
+        working-directory: application-infra/${{ inputs.working_directory }}
+        run: terraform init \
+          -backend-config="resource_group_name=${{ secrets.BACKEND_RG }}" \
+          -backend-config="storage_account_name=${{ secrets.BACKEND_STORAGE }}" \
+          -backend-config="container_name=${{ secrets.BACKEND_CONTAINER }}" \
+          -backend-config="key=terraform/${{ inputs.working_directory }}-${{ inputs.tfvars_env }}.tfstate"
+
+      - name: Select or Create Terraform Workspace
+        working-directory: application-infra/${{ inputs.working_directory }}
+        run: terraform workspace select ${{ inputs.tfvars_env }} || terraform workspace new ${{ inputs.tfvars_env }}
+
+      - name: Terraform Plan
+        working-directory: application-infra/${{ inputs.working_directory }}
+        run: terraform plan -var-file=environments/${{ inputs.tfvars_env }}.tfvars -out=tfplan
+
+      - name: Terraform Apply (NonProd)
+        if: github.event_name != 'release'
+        working-directory: application-infra/${{ inputs.working_directory }}
+        run: terraform apply -auto-approve tfplan
+
+      - name: Manual Approval for Production Deployment
+        if: github.event_name == 'release'
+        uses: hmarr/auto-approve-action@v3
+
+      - name: Terraform Apply (Production)
+        if: github.event_name == 'release'
+        working-directory: application-infra/${{ inputs.working_directory }}
+        run: terraform apply -auto-approve tfplan

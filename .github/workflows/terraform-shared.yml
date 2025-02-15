@@ -1,0 +1,25 @@
+name: "Deploy Shared Infrastructure"
+
+on:
+  push:
+    branches:
+      - dev
+      - test
+      - stage
+  release:
+    types:
+      - created
+
+jobs:
+  call-terraform:
+    uses: ./.github/workflows/terraform-deploy.yml
+    with:
+      working_directory: "shared"
+      tfvars_env: ${{ github.event_name == 'release' && 'prod' || 'nonprod' }}
+    secrets:
+      ARM_CLIENT_ID: ${{ secrets.ARM_CLIENT_ID }}
+      ARM_CLIENT_SECRET: ${{ secrets.ARM_CLIENT_SECRET }}
+      ARM_TENANT_ID: ${{ secrets.ARM_TENANT_ID }}
+      BACKEND_RG: ${{ secrets.BACKEND_RG }}
+      BACKEND_STORAGE: ${{ secrets.BACKEND_STORAGE }}
+      BACKEND_CONTAINER: ${{ secrets.BACKEND_CONTAINER }}
