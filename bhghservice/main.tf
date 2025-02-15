@@ -18,7 +18,14 @@ resource "azurerm_resource_group" "rg" {
 
 module "app_service" {
   source = "../modules/app-service-linux"
-  app_service_name = "${var.base_name}-svc"
+  app_service_name = "${var.base_name}-svc-host"
+  location = var.location
+  rg_name = azurerm_resource_group.rg.name 
+}
+
+module "app_service" {
+  source = "../modules/app-service-linux"
+  app_service_name = "${var.base_name}-exp-svc"
   location = var.location
   rg_name = azurerm_resource_group.rg.name 
 }
