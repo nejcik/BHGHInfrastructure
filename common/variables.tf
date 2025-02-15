@@ -1,3 +1,7 @@
+variable "base-name" {}
+
+variable "location" {}
+
 variable "app_service_principal_id" {
     description = "List of App Service principal ID that will need to have Contributor, App Config Data Owner, Storage Account Data Owner role and proper KV access."
     type = list(string)
